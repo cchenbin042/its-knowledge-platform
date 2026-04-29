@@ -1,0 +1,58 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: its-knowledge-platform
+  profiles:
+    active: dev
+
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5432/its_knowledge
+    username: its_user
+    password: its_pass
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+    elasticsearch:
+      cluster-nodes: localhost:9200
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+
+# RAG配置
+rag:
+  chunk:
+    size: 2500
+    overlap: 300
+  retrieve:
+    top-rough: 100
+    top-final: 8
+    weights:
+      vector: 0.6
+      bm25: 0.4
+  rrf:
+    k: 60
+  rerank:
+    enabled: false
+    model: BAAI/bge-reranker-v2-m3
+  cache:
+    query-ttl-seconds: 300
+
+# LLM配置
+llm:
+  base-url: ${LLM_BASE_URL:http://localhost:8000}
+  api-key: ${LLM_API_KEY:sk-placeholder}
+  embedding-model: ${LLM_EMBEDDING_MODEL:text-embedding-3-small}
+  chat-model: ${LLM_CHAT_MODEL:gpt-4o-mini}
+
+# Milvus配置
+milvus:
+  host: localhost
+  port: 19530
