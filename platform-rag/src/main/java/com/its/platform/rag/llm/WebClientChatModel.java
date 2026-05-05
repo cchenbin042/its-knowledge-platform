@@ -56,7 +56,7 @@ public class WebClientChatModel implements ChatLanguageModel {
             log.debug("Sending chat request to model: {}", modelName);
 
             String responseJson = webClient.post()
-                .uri("/v1/chat/completions")
+                .uri("/chat/completions")
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)

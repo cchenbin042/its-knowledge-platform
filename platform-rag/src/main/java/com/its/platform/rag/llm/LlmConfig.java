@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.time.Duration;
 
@@ -37,26 +38,63 @@ public class LlmConfig {
     @Value("${llm.timeout-seconds:120}")
     private int timeoutSeconds;
 
+    @Value("${llm.connect-timeout-seconds:30}")
+    private int connectTimeoutSeconds;
+
     @Bean
     public WebClient llmWebClient(ObjectMapper objectMapper) {
-        log.info("Creating LLM WebClient: baseUrl={}, timeout={}s", baseUrl, timeoutSeconds);
+        log.info("=== LLM WebClient Configuration ===");
+        log.info("baseUrl: {}", baseUrl);
+        log.info("apiKey: {} (length: {})", apiKey.substring(0, Math.min(10, apiKey.length())) + "...", apiKey.length());
+        log.info("timeout: {}s", timeoutSeconds);
+        log.info("connectTimeout: {}s", connectTimeoutSeconds);
 
-        HttpClient httpClient = HttpClient.create()
-            .responseTimeout(Duration.ofSeconds(timeoutSeconds));
+        // 配置连接池
+        ConnectionProvider connectionProvider = ConnectionProvider.builder("llm-pool")
+            .maxConnections(10)
+            .pendingAcquireTimeout(Duration.ofSeconds(60))
+            .pendingAcquireMaxCount(-1)
+            .maxIdleTime(Duration.ofSeconds(120))
+            .maxLifeTime(Duration.ofSeconds(300))
+            .build();
 
-        return WebClient.builder()
+        // 配置 HttpClient：连接超时 + 响应超时 + 日志
+        HttpClient httpClient = HttpClient.create(connectionProvider)
+            .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, connectTimeoutSeconds * 1000)
+            .responseTimeout(Duration.ofSeconds(timeoutSeconds))
+            .doOnConnected(conn -> {
+                log.debug("HTTP connection established: {}", conn.channel());
+                conn.addHandlerLast(
+                    new io.netty.handler.timeout.ReadTimeoutHandler(timeoutSeconds, java.util.concurrent.TimeUnit.SECONDS));
+            })
+            .doOnRequest((req, conn) -> {
+                log.debug("=== HTTP Request ===");
+                log.debug("Method: {}", req.method());
+                log.debug("URI: {}", req.uri());
+                log.debug("Headers: {}", req.requestHeaders());
+            })
+            .doOnResponse((res, conn) -> {
+                log.debug("=== HTTP Response ===");
+                log.debug("Status: {}", res.status());
+                log.debug("Headers: {}", res.responseHeaders());
+            });
+
+        WebClient webClient = WebClient.builder()
             .baseUrl(baseUrl)
             .defaultHeader("Authorization", "Bearer " + apiKey)
             .defaultHeader("Content-Type", "application/json")
+            .defaultHeader("Accept", "text/event-stream")  // 显式添加 Accept header
             .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
             .clientConnector(new ReactorClientHttpConnector(httpClient))
             .build();
+
+        log.info("LLM WebClient created successfully");
+        return webClient;
     }
 
     @Bean
     public EmbeddingModel embeddingModel() {
         log.info("Creating EmbeddingModel: model={}", embeddingModel);
-        // Embedding 请求较快，可继续使用 LangChain4j 默认实现
         return OpenAiEmbeddingModel.builder()
             .baseUrl(baseUrl)
             .apiKey(apiKey)
@@ -73,7 +111,7 @@ public class LlmConfig {
 
     @Bean
     public StreamingChatLanguageModel streamingChatLanguageModel(WebClient llmWebClient, ObjectMapper objectMapper) {
-        log.info("Creating StreamingChatLanguageModel with WebClient: model={}", chatModel);
-        return new WebClientStreamingChatModel(llmWebClient, objectMapper, chatModel);
+        log.info("Creating StreamingChatLanguageModel with WebClient: model={}, timeout={}s", chatModel, timeoutSeconds);
+        return new WebClientStreamingChatModel(llmWebClient, objectMapper, chatModel, Duration.ofSeconds(timeoutSeconds));
     }
 }

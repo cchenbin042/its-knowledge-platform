@@ -3,9 +3,13 @@ package com.its.platform.core.ingestion;
 import com.its.platform.infra.postgres.entity.DocumentEntity;
 import com.its.platform.infra.postgres.repository.DocumentRepository;
 import com.its.platform.infra.postgres.repository.ChunkRepository;
-import com.its.platform.infra.postgres.entity.ChunkEntity;
 import com.its.platform.rag.splitter.ChunkResult;
 import com.its.platform.rag.splitter.MarkdownChunker;
+import dev.langchain4j.data.embedding.Embedding;
+import dev.langchain4j.data.segment.TextSegment;
+import dev.langchain4j.data.document.Metadata;
+import dev.langchain4j.model.embedding.EmbeddingModel;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,9 +31,21 @@ public class IngestionService {
     private final DocumentRepository documentRepository;
     private final ChunkRepository chunkRepository;
     private final MarkdownChunker markdownChunker;
+    private final EmbeddingModel embeddingModel;
+    private final EmbeddingStore<TextSegment> embeddingStore;
+
+    // Maximum document size: 5MB
+    private static final long MAX_DOCUMENT_SIZE = 5 * 1024 * 1024;
+    // Batch size for embedding generation
+    private static final int EMBEDDING_BATCH_SIZE = 20;
 
     @Transactional
     public DocumentEntity ingest(MultipartFile file) throws IOException {
+        // Check file size
+        if (file.getSize() > MAX_DOCUMENT_SIZE) {
+            throw new RuntimeException("Document too large. Maximum size is 5MB. Current: " + (file.getSize() / 1024 / 1024) + "MB");
+        }
+
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
         String filename = file.getOriginalFilename();
         String title = filename != null ? filename.replace(".md", "") : "untitled";
@@ -55,20 +71,33 @@ public class IngestionService {
 
         // Chunk
         List<ChunkResult> chunks = markdownChunker.chunk(content, title);
+        log.info("Chunked document '{}' into {} chunks", title, chunks.size());
 
-        // Save chunks with content (for full-text search)
-        List<ChunkEntity> chunkEntities = new ArrayList<>();
-        for (int i = 0; i < chunks.size(); i++) {
-            ChunkResult chunk = chunks.get(i);
-            ChunkEntity entity = ChunkEntity.builder()
-                .documentId(documentId)
-                .chunkIndex(i)
-                .content(chunk.getText())
-                .createdAt(LocalDateTime.now())
-                .build();
-            chunkEntities.add(entity);
+        // Generate embeddings and store in batches
+        int totalChunks = chunks.size();
+        int processedChunks = 0;
+
+        for (int batchStart = 0; batchStart < totalChunks; batchStart += EMBEDDING_BATCH_SIZE) {
+            int batchEnd = Math.min(batchStart + EMBEDDING_BATCH_SIZE, totalChunks);
+
+            List<TextSegment> batchSegments = new ArrayList<>();
+            for (int i = batchStart; i < batchEnd; i++) {
+                ChunkResult chunk = chunks.get(i);
+                Metadata metadata = Metadata.from("documentId", documentId);
+                metadata.put("chunkIndex", i);
+                metadata.put("title", title);
+                batchSegments.add(TextSegment.from(chunk.getText(), metadata));
+            }
+
+            log.info("Generating embeddings for batch {}-{} of {} segments...", batchStart, batchEnd, totalChunks);
+            List<Embedding> batchEmbeddings = embeddingModel.embedAll(batchSegments).content();
+
+            // Store embeddings
+            embeddingStore.addAll(batchEmbeddings, batchSegments);
+            processedChunks += batchSegments.size();
+
+            log.info("Processed {} / {} chunks", processedChunks, totalChunks);
         }
-        chunkRepository.saveAll(chunkEntities);
 
         // Update chunk count
         document.setChunkCount(chunks.size());

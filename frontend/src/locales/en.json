@@ -43,7 +43,7 @@
     "inputHint": "Press Enter to send, Shift+Enter for new line"
   },
   "documents": {
-    "title": "Document Management",
+    "title": "Knowledge Documents",
     "docCount": "{{count}} documents in knowledge base",
     "uploadSuccess": "Upload successful!",
     "uploadFailed": "Upload failed",
@@ -58,6 +58,8 @@
     "chunks": "chunks",
     "deleteConfirm": "Delete document \"{{title}}\"?",
     "deleteFailed": "Delete failed: {{error}}",
+    "gridView": "Grid View",
+    "tableView": "Table View",
     "table": {
       "title": "Title",
       "chunkCount": "Chunks",

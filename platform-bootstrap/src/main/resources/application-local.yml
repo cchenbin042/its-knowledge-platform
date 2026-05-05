@@ -14,11 +14,12 @@ spring:
       port: 6379
 
 llm:
-  base-url: ${LLM_BASE_URL:http://localhost:8000}
-  api-key: ${LLM_API_KEY:sk-placeholder}
+  base-url: https://api.siliconflow.cn/v1
+  api-key: sk-vixtfoqugjjzvzhiydapwvfoxgadbcstzxpecupygtgnrmgt
   embedding-model: Pro/BAAI/bge-m3
-  chat-model: deepseek-ai/DeepSeek-V4-Flash
-  timeout-seconds: 120
+  chat-model: deepseek-ai/DeepSeek-V3
+  timeout-seconds: 180
+  connect-timeout-seconds: 30
 
 pgvector:
   embedding-dimension: 1024

@@ -1,16 +1,19 @@
 import { useEffect, useCallback, useState } from 'react';
 import { UploadZone, DocumentDetailModal } from '../components/molecules';
-import { DocumentTable } from '../components/organisms';
+import { DocumentTable, DocumentGrid } from '../components/organisms';
 import { Button } from '../components/atoms';
 import { useDocumentsStore, useTranslation } from '../stores';
-import { FileText, RefreshCw, AlertCircle } from 'lucide-react';
+import { FileText, RefreshCw, AlertCircle, LayoutGrid, List } from 'lucide-react';
 import type { Document } from '../types';
+
+type ViewMode = 'table' | 'grid';
 
 export function DocumentsPage() {
   const { documents, loading, error, fetchDocuments, uploadDocument, deleteDocument } = useDocumentsStore();
   const { t } = useTranslation();
   const [deletingTitle, setDeletingTitle] = useState<string | null>(null);
   const [selectedDocument, setSelectedDocument] = useState<Document | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // Initial fetch
   useEffect(() => {
@@ -53,10 +56,35 @@ export function DocumentsPage() {
             </div>
             <div>
               <h1 className="text-lg font-semibold text-slate-900">{t('documents.title')}</h1>
-              <p className="text-sm text-slate-500">{t('documents.docCount', { count: documents.length })}</p>
+              <p className="text-sm text-slate-500">{t('documents.docCount', { count: documents?.length ?? 0 })}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* View Mode Toggle */}
+            <div className="flex items-center bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'grid'
+                    ? 'bg-white text-slate-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title={t('documents.gridView')}
+              >
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setViewMode('table')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-slate-700 shadow-sm'
+                    : 'text-slate-500 hover:text-slate-700'
+                }`}
+                title={t('documents.tableView')}
+              >
+                <List className="w-4 h-4" />
+              </button>
+            </div>
             <Button
               variant="secondary"
               size="sm"
@@ -84,15 +112,26 @@ export function DocumentsPage() {
           {/* Upload Zone */}
           <UploadZone onUpload={handleUpload} disabled={loading} />
 
-          {/* Document Table */}
-          <DocumentTable
-            documents={documents}
-            loading={loading}
-            error={error}
-            onView={handleView}
-            onDelete={handleDelete}
-            deletingTitle={deletingTitle}
-          />
+          {/* Documents View */}
+          {viewMode === 'grid' ? (
+            <DocumentGrid
+              documents={documents ?? []}
+              loading={loading}
+              error={error}
+              onDelete={handleDelete}
+              onView={handleView}
+              deletingTitle={deletingTitle}
+            />
+          ) : (
+            <DocumentTable
+              documents={documents ?? []}
+              loading={loading}
+              error={error}
+              onView={handleView}
+              onDelete={handleDelete}
+              deletingTitle={deletingTitle}
+            />
+          )}
         </div>
       </div>
 

@@ -84,5 +84,3 @@ export function resetSteps(): Step[] {
     { id: 'generate', name: '生成回答', status: 'pending' },
   ];
 }
-
-export type { StepStatus };
