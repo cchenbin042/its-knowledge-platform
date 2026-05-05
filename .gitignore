@@ -19,6 +19,8 @@ Thumbs.db
 # Environment
 .env
 *.local
+application-local.yml
+*.local.yml
 
 # Claude
 .claude/worktrees/
