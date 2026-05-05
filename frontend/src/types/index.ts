@@ -14,6 +14,8 @@ export interface Document {
   chunkCount: number;
   createdAt: string;
   content?: string; // Available when fetching single document
+  type?: string; // Document type (inferred from file extension)
+  tags?: string[]; // Document tags
 }
 
 // Document preview response

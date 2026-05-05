@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -129,12 +130,17 @@ public class StreamingQueryService {
                     }
 
                     // Send sources with final event
+                    Map<String, Object> completeData = new HashMap<>();
+                    completeData.put("answer", fullAnswer.toString());
+                    completeData.put("sources", topResults);
+                    completeData.put("durationMs", durationMs);
+                    if (conversationSessionId != null) {
+                        completeData.put("sessionId", conversationSessionId);
+                    }
                     sseContext.sendEvent(sseSessionId, "llm_complete",
                         Map.of("message", "LLM generation completed", "tokenCount", fullAnswer.length()));
 
-                    sseContext.sendEvent(sseSessionId, "complete",
-                        Map.of("answer", fullAnswer.toString(), "sources", topResults,
-                               "durationMs", durationMs, "sessionId", conversationSessionId));
+                    sseContext.sendEvent(sseSessionId, "complete", completeData);
                     sseContext.complete(sseSessionId);
 
                     log.info("Streaming query completed in {}ms: {} tokens, {} sources",
@@ -144,18 +150,20 @@ public class StreamingQueryService {
                 @Override
                 public void onError(Throwable error) {
                     log.error("Streaming LLM error", error);
+                    String errorMsg = error.getMessage() != null ? error.getMessage() : error.getClass().getSimpleName();
                     sseContext.sendEvent(sseSessionId, "llm_error",
-                        Map.of("message", error.getMessage()));
+                        Map.of("message", errorMsg));
                     sseContext.sendEvent(sseSessionId, "error",
-                        Map.of("message", error.getMessage()));
+                        Map.of("message", errorMsg));
                     sseContext.completeWithError(sseSessionId, new RuntimeException(error));
                 }
             });
 
         } catch (Exception e) {
             log.error("Streaming query failed", e);
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             sseContext.sendEvent(sseSessionId, "error",
-                Map.of("message", e.getMessage()));
+                Map.of("message", errorMsg));
             sseContext.completeWithError(sseSessionId, e);
         }
     }

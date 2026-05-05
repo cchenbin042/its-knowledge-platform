@@ -9,6 +9,7 @@ interface DocumentGridProps {
   loading?: boolean;
   error?: string | null;
   onDelete: (title: string) => void;
+  onView?: (document: Document) => void;
   deletingTitle?: string | null;
 }
 
@@ -17,6 +18,7 @@ export function DocumentGrid({
   loading = false,
   error = null,
   onDelete,
+  onView,
   deletingTitle = null,
 }: DocumentGridProps) {
   const { t } = useTranslation();
@@ -67,6 +69,7 @@ export function DocumentGrid({
           key={doc.id}
           document={doc}
           onDelete={onDelete}
+          onView={onView}
           deleting={deletingTitle === doc.title}
         />
       ))}

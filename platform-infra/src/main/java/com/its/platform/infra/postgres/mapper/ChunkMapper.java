@@ -3,6 +3,9 @@ package com.its.platform.infra.postgres.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.its.platform.infra.postgres.entity.ChunkEntity;
 import com.its.platform.infra.pgvector.VectorTypeHandler;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -60,14 +63,17 @@ public interface ChunkMapper extends BaseMapper<ChunkEntity> {
     int deleteByDocumentId(@Param("documentId") Long documentId);
 
     /**
-     * 带得分的结果（用于全文检索）
+     * 带得分的结果（用于向量检索和全文检索）
      */
-    interface ChunkEntityWithScore {
-        Long getId();
-        Long getDocumentId();
-        Integer getChunkIndex();
-        String getContent();
-        LocalDateTime getCreatedAt();
-        Double getScore();
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ChunkEntityWithScore {
+        private Long id;
+        private Long documentId;
+        private Integer chunkIndex;
+        private String content;
+        private LocalDateTime createdAt;
+        private Double score;
     }
 }

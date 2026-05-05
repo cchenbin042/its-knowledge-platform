@@ -52,3 +52,5 @@ llm:
   api-key: ${LLM_API_KEY:sk-placeholder}
   embedding-model: ${LLM_EMBEDDING_MODEL:text-embedding-3-small}
   chat-model: ${LLM_CHAT_MODEL:gpt-4o-mini}
+  timeout-seconds: ${LLM_TIMEOUT_SECONDS:180}
+  connect-timeout-seconds: ${LLM_CONNECT_TIMEOUT_SECONDS:30}

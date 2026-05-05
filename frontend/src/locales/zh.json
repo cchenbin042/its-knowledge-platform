@@ -43,7 +43,7 @@
     "inputHint": "按 Enter 发送，Shift+Enter 换行"
   },
   "documents": {
-    "title": "文档管理",
+    "title": "知识库文档",
     "docCount": "知识库中有 {{count}} 个文档",
     "uploadSuccess": "上传成功！",
     "uploadFailed": "上传失败",
@@ -58,6 +58,8 @@
     "chunks": "个分块",
     "deleteConfirm": "确定删除文档 \"{{title}}\" 吗？",
     "deleteFailed": "删除失败：{{error}}",
+    "gridView": "卡片视图",
+    "tableView": "列表视图",
     "table": {
       "title": "标题",
       "chunkCount": "切片数",

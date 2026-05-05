@@ -48,21 +48,32 @@ public class ChunkRepository {
             return List.of();
         }
 
-        List<ChunkMapper.ChunkEntityWithScore> results = chunkMapper.searchByVector(embedding, limit);
+        try {
+            List<ChunkMapper.ChunkEntityWithScore> results = chunkMapper.searchByVector(embedding, limit);
 
-        List<SearchResult> searchResults = new ArrayList<>();
-        for (ChunkMapper.ChunkEntityWithScore r : results) {
-            searchResults.add(new SearchResult(
-                    r.getId(),
-                    r.getDocumentId(),
-                    r.getChunkIndex(),
-                    r.getContent(),
-                    r.getScore()
-            ));
+            if (results == null) {
+                log.warn("Vector search returned null for embedding dimension: {}", embedding.length);
+                return List.of();
+            }
+
+            List<SearchResult> searchResults = new ArrayList<>();
+            for (ChunkMapper.ChunkEntityWithScore r : results) {
+                if (r == null) continue;
+                searchResults.add(new SearchResult(
+                        r.getId(),
+                        r.getDocumentId(),
+                        r.getChunkIndex(),
+                        r.getContent(),
+                        r.getScore()
+                ));
+            }
+
+            log.info("Vector search returned {} results (embedding dim: {})", searchResults.size(), embedding.length);
+            return searchResults;
+        } catch (Exception e) {
+            log.error("Vector search failed for embedding dimension: {}", embedding.length, e);
+            return List.of();
         }
-
-        log.info("Vector search returned {} results", searchResults.size());
-        return searchResults;
     }
 
     /**
@@ -77,21 +88,32 @@ public class ChunkRepository {
             return List.of();
         }
 
-        List<ChunkMapper.ChunkEntityWithScore> results = chunkMapper.searchByFullText(query, limit);
+        try {
+            List<ChunkMapper.ChunkEntityWithScore> results = chunkMapper.searchByFullText(query, limit);
 
-        List<SearchResult> searchResults = new ArrayList<>();
-        for (ChunkMapper.ChunkEntityWithScore r : results) {
-            searchResults.add(new SearchResult(
-                    r.getId(),
-                    r.getDocumentId(),
-                    r.getChunkIndex(),
-                    r.getContent(),
-                    r.getScore()
-            ));
+            if (results == null) {
+                log.warn("Full-text search returned null for query: {}", query);
+                return List.of();
+            }
+
+            List<SearchResult> searchResults = new ArrayList<>();
+            for (ChunkMapper.ChunkEntityWithScore r : results) {
+                if (r == null) continue;
+                searchResults.add(new SearchResult(
+                        r.getId(),
+                        r.getDocumentId(),
+                        r.getChunkIndex(),
+                        r.getContent(),
+                        r.getScore()
+                ));
+            }
+
+            log.info("Full-text search returned {} results for query: {}", searchResults.size(), query);
+            return searchResults;
+        } catch (Exception e) {
+            log.error("Full-text search failed for query: {}", query, e);
+            return List.of();
         }
-
-        log.info("Full-text search returned {} results for query: {}", searchResults.size(), query);
-        return searchResults;
     }
 
     /**
