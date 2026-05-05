@@ -46,6 +46,15 @@ public class DocumentRepository {
         documentMapper.delete(wrapper);
     }
 
+    public DocumentEntity update(DocumentEntity document) {
+        documentMapper.updateById(document);
+        return document;
+    }
+
+    public void deleteById(Long id) {
+        documentMapper.deleteById(id);
+    }
+
     public boolean existsByContentHash(String contentHash) {
         LambdaQueryWrapper<DocumentEntity> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(DocumentEntity::getContentHash, contentHash);

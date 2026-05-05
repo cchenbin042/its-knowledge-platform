@@ -1,11 +1,12 @@
 package com.its.platform.rag.retriever;
 
-import com.its.platform.infra.es.EsBm25Retriever;
-import com.its.platform.infra.milvus.MilvusVectorStore;
+import com.its.platform.infra.pgvector.PgFullTextRetriever;
+import com.its.platform.rag.fusion.RrfFusion;
 import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
+import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.data.segment.TextSegment;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -20,35 +21,63 @@ import java.util.concurrent.StructuredTaskScope;
 @RequiredArgsConstructor
 public class CompositeRetriever {
 
-    private final MilvusVectorStore milvusVectorStore;
-    private final EsBm25Retriever esBm25Retriever;
+    private final EmbeddingStore<TextSegment> embeddingStore;
+    private final PgFullTextRetriever pgFullTextRetriever;
     private final EmbeddingModel embeddingModel;
+    private final RrfFusion rrfFusion;
 
     private final int topK = 100;
 
     public List<RetrievalResult> retrieve(String query) {
-        try (var scope = new StructuredTaskScope.ShutdownOnFailure()) {
-            // Parallel retrieval with virtual threads
-            var vectorTask = scope.fork(() -> retrieveVector(query));
-            var bm25Task = scope.fork(() -> retrieveBm25(query));
+        // Use subtask as virtual thread to handle failures independently
+        var vectorResults = new ArrayList<RetrievalResult>();
+        var fullTextResults = new ArrayList<RetrievalResult>();
 
-            scope.join().throwIfFailed();
+        try (var scope = new StructuredTaskScope<>()) {
+            var vectorTask = scope.fork(() -> {
+                try {
+                    return retrieveVector(query);
+                } catch (Exception e) {
+                    log.warn("Vector retrieval failed: {}", e.getMessage());
+                    return List.<RetrievalResult>of();
+                }
+            });
+            var fullTextTask = scope.fork(() -> {
+                try {
+                    return retrieveFullText(query);
+                } catch (Exception e) {
+                    log.warn("Full-text retrieval failed: {}", e.getMessage());
+                    return List.<RetrievalResult>of();
+                }
+            });
 
-            List<RetrievalResult> vectorResults = vectorTask.get();
-            List<RetrievalResult> bm25Results = bm25Task.get();
+            scope.join();
 
-            log.info("Vector: {}, BM25: {} results", vectorResults.size(), bm25Results.size());
-
-            List<RetrievalResult> allResults = new ArrayList<>();
-            allResults.addAll(vectorResults);
-            allResults.addAll(bm25Results);
-
-            return allResults;
+            vectorResults.addAll(vectorTask.get());
+            fullTextResults.addAll(fullTextTask.get());
 
         } catch (Exception e) {
             log.error("Parallel retrieval failed", e);
+        }
+
+        log.info("Vector: {}, FullText: {} results", vectorResults.size(), fullTextResults.size());
+
+        if (vectorResults.isEmpty() && fullTextResults.isEmpty()) {
             return List.of();
         }
+
+        // If only one source has results, return those directly
+        if (vectorResults.isEmpty()) {
+            return fullTextResults.stream().limit(8).collect(java.util.stream.Collectors.toList());
+        }
+        if (fullTextResults.isEmpty()) {
+            return vectorResults.stream().limit(8).collect(java.util.stream.Collectors.toList());
+        }
+
+        // Apply RRF fusion when both have results
+        List<RetrievalResult> fusedResults = rrfFusion.fuse(vectorResults, fullTextResults);
+        log.info("RRF fusion completed: {} results", fusedResults.size());
+        return fusedResults;
     }
 
     private List<RetrievalResult> retrieveVector(String query) {
@@ -59,13 +88,13 @@ public class CompositeRetriever {
             .maxResults(topK)
             .build();
 
-        EmbeddingSearchResult<TextSegment> result = milvusVectorStore.search(searchReq);
+        EmbeddingSearchResult<TextSegment> result = embeddingStore.search(searchReq);
 
         return RetrievalResult.fromVectorMatches(result.matches());
     }
 
-    private List<RetrievalResult> retrieveBm25(String query) {
-        List<EsBm25Retriever.SearchResult> results = esBm25Retriever.search(query, topK);
-        return RetrievalResult.fromBm25Results(results);
+    private List<RetrievalResult> retrieveFullText(String query) {
+        List<PgFullTextRetriever.SearchResult> results = pgFullTextRetriever.search(query, topK);
+        return RetrievalResult.fromFullTextResults(results);
     }
 }

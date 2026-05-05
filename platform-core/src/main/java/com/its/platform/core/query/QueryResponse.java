@@ -11,4 +11,7 @@ public class QueryResponse {
     private String question;
     private String answer;
     private List<RetrievalResult> sources;
+    private String sessionId;  // Session ID for multi-turn conversation
+    private Integer durationMs;  // Query duration in milliseconds
+    private boolean cached;  // Whether response was from cache
 }
