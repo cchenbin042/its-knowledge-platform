@@ -10,7 +10,7 @@ import java.util.stream.Collectors;
 
 import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.data.segment.TextSegment;
-import com.its.platform.infra.es.EsBm25Retriever;
+import com.its.platform.infra.pgvector.PgFullTextRetriever;
 
 @Data
 @Builder
@@ -34,14 +34,13 @@ public class RetrievalResult {
             .collect(Collectors.toList());
     }
 
-    public static List<RetrievalResult> fromBm25Results(List<EsBm25Retriever.SearchResult> results) {
+    public static List<RetrievalResult> fromFullTextResults(List<PgFullTextRetriever.SearchResult> results) {
         return results.stream()
             .map(r -> RetrievalResult.builder()
-                .documentId(r.documentId())
-                .title(r.title())
+                .documentId(String.valueOf(r.documentId()))
                 .content(r.content())
                 .score(r.score())
-                .source("bm25")
+                .source("fulltext")
                 .build())
             .collect(Collectors.toList());
     }

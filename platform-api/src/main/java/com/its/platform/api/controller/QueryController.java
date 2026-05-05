@@ -1,6 +1,7 @@
 package com.its.platform.api.controller;
 
 import com.its.platform.common.result.Result;
+import com.its.platform.core.query.QueryOptions;
 import com.its.platform.core.query.QueryResponse;
 import com.its.platform.core.query.QueryService;
 import com.its.platform.api.dto.QueryRequest;
@@ -18,7 +19,21 @@ public class QueryController {
 
     @PostMapping
     public Result<QueryResponse> query(@RequestBody QueryRequest request) {
-        QueryResponse response = queryService.query(request.getQuestion());
+        if (request == null || request.getQuestion() == null || request.getQuestion().isBlank()) {
+            return Result.fail(400, "Question is required");
+        }
+
+        QueryOptions options = QueryOptions.builder()
+            .expandQuery(request.isExpandQuery())
+            .rerank(request.isRerank())
+            .topN(request.getTopN())
+            .build();
+
+        QueryResponse response = queryService.query(
+            request.getQuestion(),
+            request.getSessionId(),
+            options
+        );
         return Result.success(response);
     }
 }

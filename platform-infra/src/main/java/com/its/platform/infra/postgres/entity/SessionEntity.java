@@ -3,6 +3,8 @@ package com.its.platform.infra.postgres.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.TableField;
+import com.its.platform.infra.postgres.handler.MessageListTypeHandler;
 import lombok.Data;
 import lombok.Builder;
 import lombok.NoArgsConstructor;
@@ -20,7 +22,9 @@ public class SessionEntity {
     @TableId(type = IdType.INPUT)
     private String id;
 
+    @TableField(typeHandler = MessageListTypeHandler.class)
     private List<MessageItem> messages;
+
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
 

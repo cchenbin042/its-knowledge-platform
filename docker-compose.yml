@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     container_name: its-postgres
     environment:
       POSTGRES_DB: its_knowledge
@@ -32,38 +30,36 @@ services:
       timeout: 5s
       retries: 5
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
-    container_name: its-es
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: its-platform
+    ports:
+      - "8080:8080"
     environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    volumes:
-      - es_data:/usr/share/elasticsearch/data
+      SPRING_PROFILES_ACTIVE: local
+      LLM_BASE_URL: https://api.siliconflow.cn/v1
+      LLM_API_KEY: sk-vixtfoqugjjzvzhiydapwvfoxgadbcstzxpecupygtgnrmgt
+      LLM_EMBEDDING_MODEL: Pro/BAAI/bge-m3
+      LLM_CHAT_MODEL: deepseek-ai/DeepSeek-V4-Flash
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/its_knowledge
+      SPRING_DATASOURCE_USERNAME: its_user
+      SPRING_DATASOURCE_PASSWORD: its_pass
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 10s
+      test: ["CMD", "curl", "-f", "http://localhost:8080/documents"]
+      interval: 30s
       timeout: 10s
       retries: 5
-
-  milvus:
-    image: milvusdb/milvus:v2.4-latest
-    container_name: its-milvus
-    ports:
-      - "19530:19530"
-    volumes:
-      - milvus_data:/var/lib/milvus
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
+      start_period: 60s
 
 volumes:
   postgres_data:
   redis_data:
-  es_data:
-  milvus_data:
